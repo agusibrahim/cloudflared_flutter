@@ -9,7 +9,10 @@ class MockCloudflaredTunnelPlatform
     implements CloudflaredTunnelPlatform {
 
   @override
-  Future<String?> getPlatformVersion() => Future.value('42');
+  Future<String> getVersion() => Future.value('2024.1.1');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -19,11 +22,11 @@ void main() {
     expect(initialPlatform, isInstanceOf<MethodChannelCloudflaredTunnel>());
   });
 
-  test('getPlatformVersion', () async {
+  test('getVersion', () async {
     CloudflaredTunnel cloudflaredTunnelPlugin = CloudflaredTunnel();
     MockCloudflaredTunnelPlatform fakePlatform = MockCloudflaredTunnelPlatform();
     CloudflaredTunnelPlatform.instance = fakePlatform;
 
-    expect(await cloudflaredTunnelPlugin.getPlatformVersion(), '42');
+    expect(await cloudflaredTunnelPlugin.getVersion(), '2024.1.1');
   });
 }

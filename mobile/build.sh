@@ -135,6 +135,17 @@ build_ios() {
 
     if [ -d "$BUILD_DIR/Cloudflared.xcframework" ]; then
         echo -e "${GREEN}✓ iOS Framework built successfully: $BUILD_DIR/Cloudflared.xcframework${NC}"
+
+        # Copy to Flutter plugin
+        echo -e "${YELLOW}Copying Framework to Flutter plugin...${NC}"
+        FLUTTER_IOS_DIR="$FLUTTER_PLUGIN_DIR/ios"
+        FRAMEWORK_DEST="$FLUTTER_IOS_DIR/Frameworks/Cloudflared.xcframework"
+
+        mkdir -p "$FLUTTER_IOS_DIR/Frameworks"
+        rm -rf "$FRAMEWORK_DEST"
+        cp -R "$BUILD_DIR/Cloudflared.xcframework" "$FRAMEWORK_DEST"
+        
+        echo -e "${GREEN}✓ Copied to: $FRAMEWORK_DEST${NC}"
     else
         echo -e "${RED}✗ Failed to build iOS Framework${NC}"
         exit 1

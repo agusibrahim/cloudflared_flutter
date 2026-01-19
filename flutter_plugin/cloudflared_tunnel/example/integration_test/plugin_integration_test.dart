@@ -15,9 +15,9 @@ import 'package:cloudflared_tunnel/cloudflared_tunnel.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
+  testWidgets('getVersion test', (WidgetTester tester) async {
     final CloudflaredTunnel plugin = CloudflaredTunnel();
-    final String? version = await plugin.getPlatformVersion();
+    final String? version = await plugin.getVersion();
     // The version string depends on the host platform running the test, so
     // just assert that some non-empty string is returned.
     expect(version?.isNotEmpty, true);

@@ -1,330 +1,272 @@
 # Cloudflared Tunnel Flutter Plugin
 
-Flutter plugin untuk Cloudflare Tunnel (cloudflared) dengan local HTTP file server. Plugin ini memungkinkan:
-- Menjalankan HTTP file server lokal di perangkat mobile
-- Logging lengkap semua request (method, headers, body, dll)
-- Meng-expose server lokal ke publik via Cloudflare tunnel
+[![pub package](https://img.shields.io/pub/v/cloudflared_tunnel.svg)](https://pub.dev/packages/cloudflared_tunnel)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Arsitektur
+Flutter plugin for [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) (cloudflared). Expose your local servers to the internet securely via Cloudflare's global network.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Flutter App                              │
-│                         │                                    │
-│                    Dart API                                  │
-│              (CloudflaredTunnel)                             │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ Platform Channel
-┌─────────────────────┴───────────────────────────────────────┐
-│                Android (Kotlin)                              │
-│           CloudflaredTunnelPlugin                            │
-│                     │                                        │
-│              cloudflared.aar                                 │
-│         (Go library via gomobile)                            │
-│    ┌────────────────┴────────────────┐                       │
-│    │                                 │                       │
-│  Local HTTP Server           Cloudflared Tunnel              │
-│  (port 8080)                 (connects to CF edge)           │
-└─────────────────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 Internet (via Cloudflare)                    │
-│                                                              │
-│   https://your-tunnel.trycloudflare.com                     │
-│                      │                                       │
-│                      ▼                                       │
-│              Your mobile device                              │
-│           (serving files locally)                            │
-└─────────────────────────────────────────────────────────────┘
-```
+## Features
 
-## Fitur
+- **Cloudflare Tunnel** - Connect to Cloudflare's edge network with token-based authentication
+- **Built-in HTTP Server** - Optional Go-based file server with request logging
+- **Works with Any Server** - Use with Shelf, dart:io HttpServer, or any local HTTP server
+- **Background Service** - Android foreground service keeps tunnel running even when app is closed (Termux-like behavior)
+- **Real-time Events** - Stream tunnel state changes, server events, and request logs
+- **Pre-built Binaries** - No need to build Go code or install gomobile
 
-- **Local HTTP Server**: Serve file dari direktori yang ditentukan
-- **Request Logging**: Log lengkap semua request (method, path, headers, body, status code, duration)
-- **Cloudflared Tunnel**: Koneksi ke Cloudflare edge network
-- **Real-time Events**: Stream events untuk state changes dan request logs
-- **Combined API**: Start server + tunnel dalam satu panggilan
+## Platform Support
 
-## Prasyarat
+| Platform | Status |
+|----------|--------|
+| Android  | ✅ Full support (API 21+) |
+| iOS      | ❌ Not supported in this version |
 
-1. **Go 1.21+** - untuk build mobile library
-2. **gomobile** - untuk generate AAR/Framework
-3. **Flutter 3.3+** - untuk build aplikasi
-4. **Android NDK** - untuk build Android (akan didownload otomatis oleh gomobile)
+### Android Architecture Support
 
-## Build AAR dengan gomobile
+| Architecture | Supported |
+|--------------|-----------|
+| arm64-v8a    | ✅ Yes (most modern devices) |
+| armeabi-v7a  | ✅ Yes (older 32-bit devices) |
+| x86_64       | ❌ No (emulator only) |
+| x86          | ❌ No (emulator only) |
 
-### 1. Install gomobile
+> **Note**: x86/x86_64 are excluded to keep package size under pub.dev limits. Most physical Android devices use ARM architecture. If you need x86 support for emulators, build from source using gomobile.
 
-```bash
-go install golang.org/x/mobile/cmd/gomobile@latest
-go install golang.org/x/mobile/cmd/gobind@latest
-```
+## Installation
 
-### 2. Build AAR
-
-Dari direktori root cloudflared:
-
-```bash
-cd mobile
-./build.sh android
-```
-
-Script ini akan:
-1. Build AAR dengan gomobile
-2. Extract classes.jar dan JNI libs
-3. Copy ke Flutter plugin secara otomatis
-
-## Instalasi di Flutter Project
-
-### 1. Tambahkan dependency di pubspec.yaml
+Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  cloudflared_tunnel:
-    path: path/to/cloudflared-master/flutter_plugin/cloudflared_tunnel
+  cloudflared_tunnel: ^1.0.0
 ```
 
-### 2. Pastikan build sudah dijalankan
+Then run:
 
-Pastikan file-file berikut sudah ada (otomatis dibuat oleh `./build.sh android`):
-- `flutter_plugin/cloudflared_tunnel/android/libs/cloudflared-classes.jar`
-- `flutter_plugin/cloudflared_tunnel/android/src/main/jniLibs/` (berisi native libraries)
+```bash
+flutter pub get
+```
 
-## Penggunaan
+That's it! The native libraries are pre-built and included in the package.
 
-### Quick Start - Start All
+## Quick Start
+
+### Option 1: Use with Built-in Go Server
 
 ```dart
 import 'package:cloudflared_tunnel/cloudflared_tunnel.dart';
 
 final plugin = CloudflaredTunnel();
 
-// Start server dan tunnel sekaligus
+// Start server and tunnel together
 await plugin.startAll(
   token: 'your-tunnel-token',
   rootDir: '/path/to/serve',
   port: 8080,
 );
 
-// Sekarang file Anda bisa diakses publik via Cloudflare!
+// Your files are now accessible via Cloudflare!
+// Listen to request logs
+plugin.requestLogStream.listen((log) {
+  print('${log.method} ${log.path} - ${log.statusCode}');
+});
 
-// Stop semua
+// Stop when done
 await plugin.stopAll();
 ```
 
-### Manual Control
+### Option 2: Use with Dart Shelf Server
 
 ```dart
+import 'package:cloudflared_tunnel/cloudflared_tunnel.dart';
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf/shelf_io.dart' as shelf_io;
+
+// Start your Shelf server first
+final handler = const shelf.Pipeline()
+    .addMiddleware(shelf.logRequests())
+    .addHandler((request) => shelf.Response.ok('Hello from Dart!'));
+
+final server = await shelf_io.serve(handler, '127.0.0.1', 3000);
+
+// Then start tunnel pointing to your Shelf server
 final plugin = CloudflaredTunnel();
-
-// 1. Start local server dulu
-await plugin.startServer(
-  rootDir: '/path/to/serve',
-  port: 8080,
-);
-
-// Dapatkan URL server
-final serverUrl = await plugin.getServerUrl();
-print('Server running at: $serverUrl'); // http://127.0.0.1:8080
-
-// 2. Start tunnel dengan server sebagai origin
 await plugin.startTunnel(
   token: 'your-tunnel-token',
-  originUrl: serverUrl,
+  originUrl: 'http://127.0.0.1:3000',
 );
 
-// 3. Listen ke request logs
-plugin.requestLogStream.listen((log) {
-  print('${log.method} ${log.path} - ${log.statusCode} (${log.durationMs}ms)');
-  print('  User-Agent: ${log.userAgent}');
-  print('  Headers: ${log.headers}');
-  if (log.body.isNotEmpty) {
-    print('  Body: ${log.body}');
-  }
-});
-
-// 4. Stop ketika selesai
-await plugin.stopTunnel();
-await plugin.stopServer();
-
-// Cleanup
-plugin.dispose();
+// Your Shelf server is now publicly accessible!
 ```
 
-### Listen ke State Changes
+## Android Setup
+
+### Notification Permission (Android 13+)
+
+For Android 13 and above, request notification permission before starting the tunnel:
 
 ```dart
-// Tunnel state
-plugin.tunnelStateStream.listen((state) {
-  print('Tunnel: ${state.name}'); // disconnected, connecting, connected, etc.
-});
-
-// Server state
-plugin.serverStateStream.listen((state) {
-  print('Server: ${state.name}'); // stopped, starting, running, error
-});
-
-// Errors
-plugin.tunnelErrorStream.listen((error) {
-  print('Tunnel Error: $error');
-});
-
-plugin.serverErrorStream.listen((error) {
-  print('Server Error: $error');
-});
-```
-
-### Get Request Logs
-
-```dart
-// Get all stored logs
-final logs = await plugin.getRequestLogs();
-for (final log in logs) {
-  print('${log.timestamp}: ${log.method} ${log.path}');
+// Check and request permission
+final hasPermission = await plugin.hasNotificationPermission();
+if (!hasPermission) {
+  await plugin.requestNotificationPermission();
 }
 
-// Clear logs
-await plugin.clearRequestLogs();
+// Then start tunnel
+await plugin.startTunnel(...);
 ```
 
-### List Directory
+### Foreground Service
 
-```dart
-final files = await plugin.listDirectory('/path/to/dir');
-for (final file in files) {
-  print('${file.name} - ${file.isDir ? "DIR" : "${file.size} bytes"}');
-}
-```
+The plugin runs as a foreground service on Android, which means:
+- Tunnel survives when app is closed or swiped from recent apps
+- A persistent notification shows tunnel status
+- Users can stop the tunnel from the notification
+- Service restarts automatically if killed by system
 
 ## API Reference
 
-### CloudflaredTunnel
-
-#### Tunnel Methods
-
-| Method | Description |
-|--------|-------------|
-| `startTunnel({token, originUrl, haConnections, enablePostQuantum})` | Start Cloudflare tunnel |
-| `stopTunnel()` | Stop tunnel |
-| `getTunnelState()` | Get current tunnel state |
-| `validateToken(token)` | Validate token tanpa start |
-| `getVersion()` | Get library version |
-| `isTunnelRunning()` | Check if tunnel running |
-
-#### Server Methods
-
-| Method | Description |
-|--------|-------------|
-| `startServer({rootDir, port})` | Start local HTTP server |
-| `stopServer()` | Stop server |
-| `getServerState()` | Get current server state |
-| `getServerUrl()` | Get server URL |
-| `getRequestLogs()` | Get all stored request logs |
-| `clearRequestLogs()` | Clear request logs |
-| `listDirectory(path)` | List directory contents |
-
-#### Combined Methods
-
-| Method | Description |
-|--------|-------------|
-| `startAll({token, rootDir, port, ...})` | Start server + tunnel |
-| `stopAll()` | Stop tunnel + server |
-
-#### Streams
-
-| Stream | Type | Description |
-|--------|------|-------------|
-| `tunnelStateStream` | `Stream<TunnelState>` | Tunnel state changes |
-| `serverStateStream` | `Stream<ServerState>` | Server state changes |
-| `requestLogStream` | `Stream<RequestLog>` | Real-time request logs |
-| `tunnelErrorStream` | `Stream<String>` | Tunnel errors |
-| `serverErrorStream` | `Stream<String>` | Server errors |
-
-### TunnelState
+### Tunnel Methods
 
 ```dart
-enum TunnelState {
-  disconnected,  // 0
-  connecting,    // 1
-  connected,     // 2
-  reconnecting,  // 3
-  error,         // 4
-}
+// Start tunnel with Cloudflare token
+await plugin.startTunnel(
+  token: 'your-token',           // Required: Cloudflare tunnel token
+  originUrl: 'http://127.0.0.1:8080',  // Local server to proxy to
+);
+
+// Stop tunnel
+await plugin.stopTunnel();
+
+// Check tunnel state
+final state = await plugin.getTunnelState();
+final isRunning = await plugin.isTunnelRunning();
+
+// Validate token without starting
+final tunnelId = await plugin.validateToken('your-token');
+
+// Get cloudflared version
+final version = await plugin.getVersion();
 ```
 
-### ServerState
+### Server Methods (Built-in Go Server)
 
 ```dart
-enum ServerState {
-  stopped,   // 0
-  starting,  // 1
-  running,   // 2
-  error,     // 3
-}
+// Start local HTTP file server
+await plugin.startServer(
+  rootDir: '/path/to/serve',  // Directory to serve
+  port: 8080,                 // Port number
+);
+
+// Stop server
+await plugin.stopServer();
+
+// Get server info
+final state = await plugin.getServerState();
+final url = await plugin.getServerUrl();  // e.g., "http://127.0.0.1:8080"
+
+// Request logs
+final logs = await plugin.getRequestLogs();
+await plugin.clearRequestLogs();
+
+// List directory
+final files = await plugin.listDirectory('/path');
 ```
 
-### RequestLog
+### Service Methods
 
 ```dart
-class RequestLog {
-  final String timestamp;
-  final String method;      // GET, POST, etc.
-  final String path;        // /index.html
-  final String remoteAddr;  // IP address
-  final String userAgent;
-  final String contentType;
-  final Map<String, String> headers;
-  final Map<String, String> query;
-  final String body;        // Request body (max 10KB)
-  final int statusCode;     // 200, 404, etc.
-  final int durationMs;     // Response time in ms
-}
+// Check if background service is running
+final isRunning = await plugin.isServiceRunning();
+
+// Stop service completely (stops tunnel and server)
+await plugin.stopService();
+
+// Notification permission (Android 13+)
+final has = await plugin.hasNotificationPermission();
+final granted = await plugin.requestNotificationPermission();
 ```
 
-## Mendapatkan Tunnel Token
+### Streams
 
-1. Buka [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com)
-2. Pergi ke **Access** > **Tunnels**
-3. Buat tunnel baru atau pilih yang sudah ada
-4. Copy token dari halaman konfigurasi tunnel
+```dart
+// Tunnel state changes
+plugin.tunnelStateStream.listen((TunnelState state) {
+  // disconnected, connecting, connected, reconnecting, error
+});
+
+// Server state changes
+plugin.serverStateStream.listen((ServerState state) {
+  // stopped, starting, running, error
+});
+
+// Request logs (real-time)
+plugin.requestLogStream.listen((RequestLog log) {
+  print('${log.method} ${log.path} - ${log.statusCode}');
+});
+
+// Errors
+plugin.tunnelErrorStream.listen((String error) { });
+plugin.serverErrorStream.listen((String error) { });
+```
+
+## Getting a Tunnel Token
+
+1. Go to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com)
+2. Navigate to **Networks** > **Tunnels**
+3. Create a new tunnel or select existing one
+4. Copy the token from the tunnel configuration page
 
 ## Troubleshooting
 
-### AAR tidak ditemukan
+### Tunnel won't connect
 
-Pastikan:
-1. File `cloudflared.aar` ada di `android/libs/`
-2. `build.gradle` sudah dikonfigurasi dengan `flatDir { dirs 'libs' }`
+1. Verify your token is valid using `validateToken()`
+2. Check internet connectivity
+3. Ensure your local server is running before starting tunnel
+4. Listen to `tunnelErrorStream` for detailed errors
 
-### Build gagal
+### Notification not showing (Android)
 
-1. Pastikan Go dan gomobile terinstall dengan benar
-2. Jalankan `gomobile init` sebelum build
-3. Pastikan Android NDK terinstall
+1. Request notification permission on Android 13+
+2. Check notification settings in system app settings
+3. Ensure FOREGROUND_SERVICE permission in AndroidManifest
 
-### Server tidak bisa start
+### Release build crashes
 
-1. Pastikan direktori yang di-serve valid dan ada
-2. Pastikan port tidak digunakan aplikasi lain
-3. Check permission storage jika serve dari external storage
+The plugin includes ProGuard rules automatically. If you still have issues:
 
-### Tunnel tidak connect
+```groovy
+// android/app/build.gradle
+android {
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+```
 
-1. Pastikan token valid (gunakan `validateToken()`)
-2. Cek koneksi internet
-3. Pastikan server sudah running sebelum start tunnel
-4. Lihat error di `tunnelErrorStream`
+## Example App
 
-## Limitasi
-
-- Saat ini hanya support Android
-- iOS support dalam pengembangan
-- Request body logging max 10KB
-- Max 1000 request logs disimpan
+See the [example](example/) directory for a complete demo app showing:
+- Go server mode (static file serving)
+- Shelf server mode (dynamic Dart routes)
+- Auto-save/load tunnel token
+- Request log viewer
 
 ## License
 
-Apache 2.0 - Lihat file LICENSE untuk detail.
+MIT License - see [LICENSE](LICENSE) for details.
+
+This plugin includes cloudflared which is licensed under the Apache License 2.0.
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines before submitting PRs.
+
+## Acknowledgments
+
+- [Cloudflare](https://www.cloudflare.com/) for the amazing cloudflared tunnel
+- [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile) for Go mobile bindings

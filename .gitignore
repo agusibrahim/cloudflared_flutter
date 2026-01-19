@@ -3,20 +3,20 @@ mobile/build/
 *.aar
 *.xcframework
 
-# Go
+# Go (exclude from root, but allow in jniLibs for publishing)
 *.exe
 *.exe~
 *.dll
-*.so
 *.dylib
 
-# Flutter plugin build artifacts
-flutter_plugin/cloudflared_tunnel/android/libs/
-flutter_plugin/cloudflared_tunnel/android/src/main/jniLibs/
+# Flutter plugin build artifacts (but keep libs and jniLibs for publishing)
 flutter_plugin/**/build/
 flutter_plugin/**/.dart_tool/
 flutter_plugin/**/.packages
-flutter_plugin/**/pubspec.lock
+
+# Keep these for pub.dev publishing:
+# flutter_plugin/cloudflared_tunnel/android/libs/
+# flutter_plugin/cloudflared_tunnel/android/src/main/jniLibs/
 
 # IDE
 .idea/

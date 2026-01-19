@@ -1,10 +1,8 @@
 /// Flutter plugin for Cloudflare Tunnel (cloudflared) with optional local HTTP server.
 ///
-/// This plugin provides:
 /// - Cloudflared tunnel connection to Cloudflare's global network
 /// - Optional: Local HTTP file server with request logging (Go-based)
 /// - Tunnel can be used standalone with any Dart HTTP server (shelf, etc.)
-library cloudflared_tunnel;
 
 import 'dart:async';
 import 'cloudflared_tunnel_platform_interface.dart';
@@ -119,7 +117,7 @@ class CloudflaredTunnel {
     _tunnelEventSubscription =
         CloudflaredTunnelPlatform.instance.tunnelEventStream.listen((event) {
       switch (event) {
-        case StateChangedEvent(:final state, :final message):
+        case StateChangedEvent(:final state):
           _currentTunnelState = state;
           _tunnelStateController.add(state);
           break;
@@ -135,7 +133,7 @@ class CloudflaredTunnel {
     _serverEventSubscription =
         CloudflaredTunnelPlatform.instance.serverEventStream.listen((event) {
       switch (event) {
-        case ServerStateChangedEvent(:final state, :final message):
+        case ServerStateChangedEvent(:final state):
           _currentServerState = state;
           _serverStateController.add(state);
           break;
