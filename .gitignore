@@ -1,0 +1,31 @@
+# Build outputs
+mobile/build/
+*.aar
+*.xcframework
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Flutter plugin build artifacts
+flutter_plugin/cloudflared_tunnel/android/libs/
+flutter_plugin/cloudflared_tunnel/android/src/main/jniLibs/
+flutter_plugin/**/build/
+flutter_plugin/**/.dart_tool/
+flutter_plugin/**/.packages
+flutter_plugin/**/pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

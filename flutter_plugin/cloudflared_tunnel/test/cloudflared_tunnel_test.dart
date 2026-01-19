@@ -1,0 +1,29 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:cloudflared_tunnel/cloudflared_tunnel.dart';
+import 'package:cloudflared_tunnel/cloudflared_tunnel_platform_interface.dart';
+import 'package:cloudflared_tunnel/cloudflared_tunnel_method_channel.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+class MockCloudflaredTunnelPlatform
+    with MockPlatformInterfaceMixin
+    implements CloudflaredTunnelPlatform {
+
+  @override
+  Future<String?> getPlatformVersion() => Future.value('42');
+}
+
+void main() {
+  final CloudflaredTunnelPlatform initialPlatform = CloudflaredTunnelPlatform.instance;
+
+  test('$MethodChannelCloudflaredTunnel is the default instance', () {
+    expect(initialPlatform, isInstanceOf<MethodChannelCloudflaredTunnel>());
+  });
+
+  test('getPlatformVersion', () async {
+    CloudflaredTunnel cloudflaredTunnelPlugin = CloudflaredTunnel();
+    MockCloudflaredTunnelPlatform fakePlatform = MockCloudflaredTunnelPlatform();
+    CloudflaredTunnelPlatform.instance = fakePlatform;
+
+    expect(await cloudflaredTunnelPlugin.getPlatformVersion(), '42');
+  });
+}
