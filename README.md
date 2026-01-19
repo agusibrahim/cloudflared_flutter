@@ -49,7 +49,7 @@ gomobile init
 ### Clone with submodules
 
 ```bash
-git clone --recursive https://github.com/YOUR_USERNAME/cloudflared_flutter.git
+git clone --recursive https://github.com/agusibrahim/cloudflared_flutter.git
 cd cloudflared_flutter
 
 # Or if already cloned without --recursive:

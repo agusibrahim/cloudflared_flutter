@@ -1,4 +1,4 @@
-module github.com/nicholaslck/cloudflared_flutter/mobile
+module github.com/agusibrahim/cloudflared_flutter/mobile
 
 go 1.24.0
 
