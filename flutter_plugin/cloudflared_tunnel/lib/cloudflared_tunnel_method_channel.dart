@@ -240,4 +240,31 @@ class MethodChannelCloudflaredTunnel extends CloudflaredTunnelPlatform {
     _serverEventController = null;
     _isListening = false;
   }
+
+  // =========================================================================
+  // Service Methods
+  // =========================================================================
+
+  @override
+  Future<bool> isServiceRunning() async {
+    final running = await _methodChannel.invokeMethod<bool>('isServiceRunning');
+    return running ?? false;
+  }
+
+  @override
+  Future<void> stopService() async {
+    await _methodChannel.invokeMethod('stopService');
+  }
+
+  @override
+  Future<bool> requestNotificationPermission() async {
+    final granted = await _methodChannel.invokeMethod<bool>('requestNotificationPermission');
+    return granted ?? false;
+  }
+
+  @override
+  Future<bool> hasNotificationPermission() async {
+    final hasPermission = await _methodChannel.invokeMethod<bool>('hasNotificationPermission');
+    return hasPermission ?? false;
+  }
 }

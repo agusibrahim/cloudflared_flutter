@@ -1,3 +1,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.cloudflare.cloudflared_tunnel">
+    package="com.cloudflare.cloudflared_tunnel">
+
+    <!-- Required for foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Keep CPU running while tunnel is active -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Network access for tunnel -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Required on Android 13+ for posting notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!-- Foreground service for cloudflared tunnel -->
+        <service
+            android:name=".CloudflaredService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="tunnel" />
+        </service>
+    </application>
+
 </manifest>

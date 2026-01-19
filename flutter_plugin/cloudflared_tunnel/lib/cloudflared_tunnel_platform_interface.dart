@@ -278,4 +278,28 @@ abstract class CloudflaredTunnelPlatform extends PlatformInterface {
   Stream<ServerEvent> get serverEventStream {
     throw UnimplementedError('serverEventStream has not been implemented.');
   }
+
+  // =========================================================================
+  // Service Methods
+  // =========================================================================
+
+  /// Check if the background service is running
+  Future<bool> isServiceRunning() {
+    throw UnimplementedError('isServiceRunning() has not been implemented.');
+  }
+
+  /// Stop the background service completely
+  Future<void> stopService() {
+    throw UnimplementedError('stopService() has not been implemented.');
+  }
+
+  /// Request notification permission (Android 13+)
+  Future<bool> requestNotificationPermission() {
+    throw UnimplementedError('requestNotificationPermission() has not been implemented.');
+  }
+
+  /// Check if notification permission is granted
+  Future<bool> hasNotificationPermission() {
+    throw UnimplementedError('hasNotificationPermission() has not been implemented.');
+  }
 }

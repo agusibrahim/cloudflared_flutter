@@ -336,6 +336,53 @@ class CloudflaredTunnel {
     await stopServer();
   }
 
+  // ===========================================================================
+  // Service API (Android Background Service)
+  // ===========================================================================
+
+  /// Check if the background service is running.
+  ///
+  /// On Android, the tunnel and server run in a foreground service that
+  /// survives app closure (similar to Termux). This method checks if that
+  /// service is currently running.
+  ///
+  /// On iOS, this always returns false as iOS doesn't use foreground services.
+  Future<bool> isServiceRunning() async {
+    return CloudflaredTunnelPlatform.instance.isServiceRunning();
+  }
+
+  /// Stop the background service completely.
+  ///
+  /// This stops both the tunnel and server, and terminates the foreground
+  /// service on Android. Use this when you want to completely shut down
+  /// all background operations.
+  ///
+  /// Note: Calling [stopTunnel] and [stopServer] individually will also
+  /// automatically stop the service if nothing else is running.
+  Future<void> stopService() async {
+    await CloudflaredTunnelPlatform.instance.stopService();
+  }
+
+  /// Request notification permission (Android 13+).
+  ///
+  /// On Android 13 (API 33) and above, apps must request the POST_NOTIFICATIONS
+  /// permission at runtime to show notifications. Call this method before
+  /// starting the tunnel or server to ensure the notification can be shown.
+  ///
+  /// Returns true if permission is granted, false otherwise.
+  /// On older Android versions, this always returns true.
+  Future<bool> requestNotificationPermission() async {
+    return CloudflaredTunnelPlatform.instance.requestNotificationPermission();
+  }
+
+  /// Check if notification permission is granted.
+  ///
+  /// Returns true if notification permission is granted or not required
+  /// (Android < 13), false if denied.
+  Future<bool> hasNotificationPermission() async {
+    return CloudflaredTunnelPlatform.instance.hasNotificationPermission();
+  }
+
   /// Dispose of resources.
   void dispose() {
     _tunnelEventSubscription?.cancel();

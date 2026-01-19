@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/rs/zerolog"
 
 	"github.com/cloudflare/cloudflared/client"
@@ -31,6 +33,38 @@ import (
 	"github.com/cloudflare/cloudflared/supervisor"
 	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
 )
+
+// metricsResetMu protects the metrics registry reset
+var metricsResetMu sync.Mutex
+var tunnelStartCount int
+
+// resetPrometheusRegistry creates a fresh Prometheus registry and replaces the default one.
+// This is necessary because cloudflared uses MustRegister() which panics on duplicate registration,
+// and the Go runtime persists in mobile apps even after stopping the tunnel.
+func resetPrometheusRegistry() {
+	metricsResetMu.Lock()
+	defer metricsResetMu.Unlock()
+
+	tunnelStartCount++
+
+	// Create a completely new registry
+	newRegistry := prometheus.NewRegistry()
+
+	// Register the default Go collectors that are normally registered
+	newRegistry.MustRegister(collectors.NewGoCollector())
+	newRegistry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+
+	// Replace the default registerer and gatherer
+	// This is a bit of a hack, but it's the only way to reset the registry
+	// without modifying cloudflared source code
+	prometheus.DefaultRegisterer = newRegistry
+	prometheus.DefaultGatherer = newRegistry
+}
+
+// cleanupMetricsState is a wrapper for compatibility
+func cleanupMetricsState() {
+	resetPrometheusRegistry()
+}
 
 // init configures the DNS resolver to use Cloudflare's 1.1.1.1
 // This is necessary on mobile where the default resolver may not work
@@ -727,22 +761,36 @@ func StartTunnel(token string, originURL string) error {
 // StartTunnelWithCallback starts a tunnel with a callback for state updates.
 // This blocks until the tunnel is stopped or encounters an error.
 func StartTunnelWithCallback(token string, originURL string, callback TunnelCallback) (err error) {
-	// Recover from any panics in the Go code
+	// Recover from any panics in the Go code, including duplicate metrics registration
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("tunnel panic: %v", r)
+			errStr := fmt.Sprintf("%v", r)
+			// Check if this is a duplicate metrics error - if so, we need to inform user to restart app
+			if contains(errStr, "duplicate metrics") || contains(errStr, "already registered") {
+				err = fmt.Errorf("metrics already registered - please restart the app completely to start tunnel again")
+			} else {
+				err = fmt.Errorf("tunnel panic: %v", r)
+			}
 			if callback != nil {
 				callback.OnError(1, err.Error())
 			}
 		}
 	}()
 
+	// Cleanup any existing tunnel state
+	cleanupMetricsState()
+
 	tunnelMu.Lock()
 	if globalTunnel != nil {
-		tunnelMu.Unlock()
-		return errors.New("tunnel is already running")
+		// Stop existing tunnel first
+		globalTunnel.Stop()
+		globalTunnel = nil
+		// Give some time for cleanup
+		time.Sleep(100 * time.Millisecond)
 	}
+	tunnelMu.Unlock()
 
+	tunnelMu.Lock()
 	tunnel, err := NewTunnel(token, originURL, callback)
 	if err != nil {
 		tunnelMu.Unlock()
@@ -754,6 +802,20 @@ func StartTunnelWithCallback(token string, originURL string, callback TunnelCall
 	return tunnel.Start()
 }
 
+// contains checks if a string contains a substring (case-insensitive)
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 // StopTunnel stops the currently running tunnel
 func StopTunnel() {
 	tunnelMu.Lock()
@@ -763,6 +825,9 @@ func StopTunnel() {
 		globalTunnel.Stop()
 		globalTunnel = nil
 	}
+
+	// Reset the Prometheus registry so next start won't have duplicate metrics
+	resetPrometheusRegistry()
 }
 
 // IsTunnelRunning returns true if a tunnel is currently running
@@ -804,4 +869,21 @@ func ValidateToken(token string) (string, error) {
 // GetVersion returns the version of the mobile library
 func GetVersion() string {
 	return Version
+}
+
+// ForceReset performs a complete reset of all tunnel state and metrics.
+// This should be called when you want to completely restart from scratch.
+func ForceReset() {
+	tunnelMu.Lock()
+	if globalTunnel != nil {
+		globalTunnel.Stop()
+		globalTunnel = nil
+	}
+	tunnelMu.Unlock()
+
+	// Reset Prometheus registry
+	resetPrometheusRegistry()
+
+	// Give some time for goroutines to clean up
+	time.Sleep(200 * time.Millisecond)
 }

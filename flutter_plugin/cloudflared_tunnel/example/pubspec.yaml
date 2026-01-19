@@ -28,6 +28,13 @@ dependencies:
   # Path provider for accessing app directories
   path_provider: ^2.1.0
 
+  # Shelf HTTP server for Dart-based server mode
+  shelf: ^1.4.0
+  shelf_router: ^1.1.0
+
+  # Shared preferences for saving token
+  shared_preferences: ^2.2.0
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
